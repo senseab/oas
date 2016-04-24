@@ -51,7 +51,7 @@ func safeGetElement(name string, contianer map[string]interface{}) interface{} {
 
 func formatHeader(headers http.Header) http.Header {
 	tmpHeaders = make(http.Header)
-	for k, _ := range headers {
+	for k := range headers {
 		if strings.HasPrefix(strings.ToLower(k), OasDefineHeaderPrefix) {
 			kLower := strings.ToLower(k)
 			tmpHeaders.Set(kLower, headers.Get(k))
@@ -71,7 +71,7 @@ func getAssign(secret, method string, headers http.Header,
 	tmpHeader := formatHeader(headers)
 	if len(*tmpHeader) > 0 {
 		xHeaderList := make([]string)
-		for k, _ := range *tmpHeader {
+		for k := range *tmpHeader {
 			xHeaderList = append(xHeaderList, k)
 		}
 		sort.Strings(xHeaderList)
