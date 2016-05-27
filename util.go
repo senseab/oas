@@ -1,11 +1,12 @@
-package gooas
+package oas
 
 import (
 	"crypto/hmac"
 	"crypto/sha1"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
-	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"sort"
@@ -16,17 +17,31 @@ const (
 	OasDefineHeaderPrefix = "x-oas-"
 )
 
-func appendParam(url string, params map[string]interface{}) string {
-	l := make([]string)
+type ErrorMsg struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+	Type    string `json:"type"`
+}
+
+func (e *ErrorMsg) String() string {
+	return fmt.Sprintf(`Code: "%s", Message: "%s", Type: "%s"`,
+		e.Code, e.Message, e.Type)
+}
+
+func appendParam(Url string, params map[string]interface{}) string {
+	l := make([]string, 0)
 	for k, v := range params {
 		k = strings.Replace(k, "_", "-", -1)
 		if k == "maxkeys" {
 			k = "max-keys"
 		}
+
 		nv := fmt.Sprint(v)
 		if nv != "" {
-			l = append(l, fmt.Sprintf("%s=%s",
-				url.QueryEscape(k), url.QueryEscape(nv)))
+			l = append(l,
+				fmt.Sprintf("%s=%s",
+					url.QueryEscape(k),
+					url.QueryEscape(nv)))
 		} else if k == "acl" {
 			l = append(l, url.QueryEscape(k))
 		} else if nv == "" {
@@ -34,32 +49,17 @@ func appendParam(url string, params map[string]interface{}) string {
 		}
 	}
 	if len(l) != 0 {
-		url = fmt.Sprintf("%s?%s", url, strings.Join(l, "&"))
+		Url = fmt.Sprintf("%s?%s", Url, strings.Join(l, "&"))
 	}
-	return url
+	return Url
 }
 
-func safeGetElement(name string, contianer map[string]interface{}) interface{} {
-	for k, v := range contianer {
-		if strings.ToLower(strings.TrimSpace(k)) ==
-			strings.ToLower(strings.TrimSpace(name)) {
-			return v
-		}
+func safeGetElement(name string, contianer map[string]string) string {
+	v, ok := contianer[strings.TrimSpace(name)]
+	if ok {
+		return v
 	}
-	return nil
-}
-
-func formatHeader(headers http.Header) http.Header {
-	tmpHeaders = make(http.Header)
-	for k := range headers {
-		if strings.HasPrefix(strings.ToLower(k), OasDefineHeaderPrefix) {
-			kLower := strings.ToLower(k)
-			tmpHeaders.Set(kLower, headers.Get(k))
-		} else {
-			tmpHeaders.Set(k) = headers.Get(k)
-		}
-	}
-	return tmpHeaders
+	return ""
 }
 
 func getAssign(secret, method string, headers http.Header,
@@ -69,16 +69,16 @@ func getAssign(secret, method string, headers http.Header,
 
 	date := headers.Get("Date")
 	tmpHeader := formatHeader(headers)
-	if len(*tmpHeader) > 0 {
-		xHeaderList := make([]string)
-		for k := range *tmpHeader {
+	if len(tmpHeader) > 0 {
+		var xHeaderList []string
+		for k := range tmpHeader {
 			xHeaderList = append(xHeaderList, k)
 		}
 		sort.Strings(xHeaderList)
 		for _, k := range xHeaderList {
 			if strings.HasPrefix(k, OasDefineHeaderPrefix) {
 				canonicalizedBcHeaders = fmt.Sprintf("%s%s:%v\n",
-					canonicalizedBcHeaders, k, tmpHeader.Get(k))
+					canonicalizedBcHeaders, k, safeGetElement(k, tmpHeader))
 			}
 		}
 	}
@@ -86,9 +86,38 @@ func getAssign(secret, method string, headers http.Header,
 		canonicalizedBcHeaders, canonicalizedResource)
 	*result = append(*result, stringToSign)
 
-	h := sha1.New()
+	h := hmac.New(sha1.New, []byte(secret))
 	h.Write([]byte(stringToSign))
-	h := hmac.New(h, []byte(secret))
 	b := base64.StdEncoding.EncodeToString(h.Sum(nil))
 	return strings.TrimSpace(b)
+}
+
+func formatHeader(headers http.Header) map[string]string {
+	tmpHeaders := make(map[string]string)
+	for k := range headers {
+		kLower := strings.ToLower(k)
+		if strings.HasPrefix(kLower, OasDefineHeaderPrefix) {
+			tmpHeaders[kLower] = headers.Get(k)
+		} else {
+			tmpHeaders[k] = headers.Get(k)
+		}
+	}
+	return tmpHeaders
+}
+
+func checkResponse(r *http.Response, status int) (err error) {
+	if r.StatusCode != status {
+		b, _ := ioutil.ReadAll(r.Body)
+		if len(b) != 0 {
+			reason := new(ErrorMsg)
+			err = json.Unmarshal(b, reason)
+			if err != nil {
+				return
+			}
+			err = fmt.Errorf(operationFailedFormat, reason)
+		} else {
+			err = fmt.Errorf("Get HTTP Status: %s", r.Status)
+		}
+	}
+	return
 }
