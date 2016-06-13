@@ -336,8 +336,8 @@ func (o *OasClient) GetJobInfo(vaultID, jobId string) (requestId string,
 	return
 }
 
-func (o *OasClient) DeleteArchive(vaultID, archiveId string) (requestId,
-	jobId string, err error) {
+func (o *OasClient) DeleteArchive(vaultID, archiveId string) (string, error) {
+	var err error
 	defer func() {
 		x := recover()
 		if x != nil {
@@ -348,13 +348,11 @@ func (o *OasClient) DeleteArchive(vaultID, archiveId string) (requestId,
 	method := "DELETE"
 	r, err := o.httpRequest(method, url, nil, new(bytes.Buffer), nil)
 	if err != nil {
-		return
+		return "", err
 	}
-	requestId = r.Header.Get("x-oas-request-id")
+	requestId := r.Header.Get("x-oas-request-id")
 	if err = checkResponse(r, http.StatusNoContent); err != nil {
-		return
+		return "", err
 	}
-	jobId = r.Header.Get("x-oas-job-id")
-	err = nil
-	return
+	return requestId, err
 }
