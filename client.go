@@ -234,7 +234,7 @@ func (o *OasClient) ArchiveToOas(vaultID, ossHost, bucket,
 		Object  string `json:"Object"`
 	}{
 		Type:    "pull-from-oss",
-		Desc:    desc,
+		Desc:    strings.TrimSpace(desc),
 		OSSHost: ossHost,
 		Bucket:  bucket,
 		Object:  path,
