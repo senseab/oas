@@ -195,6 +195,7 @@ func (o *OasClient) ListVaults(limit int, marker string) (requestId string,
 	if err != nil {
 		return
 	}
+	defer r.Body.Close()
 	requestId = r.Header.Get("x-oas-request-id")
 	if err = checkResponse(r, http.StatusOK); err != nil {
 		return
@@ -248,6 +249,7 @@ func (o *OasClient) ArchiveToOas(vaultID, ossHost, bucket,
 	if err != nil {
 		return
 	}
+	defer r.Body.Close()
 	requestId = r.Header.Get("x-oas-request-id")
 	if err = checkResponse(r, http.StatusAccepted); err != nil {
 		return
@@ -292,6 +294,7 @@ func (o *OasClient) RecoverToOss(vaultID, archiveId, ossHost,
 	if err != nil {
 		return
 	}
+	defer r.Body.Close()
 	requestId = r.Header.Get("x-oas-request-id")
 	if err = checkResponse(r, http.StatusAccepted); err != nil {
 		return
@@ -316,6 +319,7 @@ func (o *OasClient) GetJobInfo(vaultID, jobId string) (requestId string,
 	if err != nil {
 		return
 	}
+	defer r.Body.Close()
 	requestId = r.Header.Get("x-oas-request-id")
 
 	if err = checkResponse(r, http.StatusOK); err != nil {
@@ -350,6 +354,7 @@ func (o *OasClient) DeleteArchive(vaultID, archiveId string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	defer r.Body.Close()
 	requestId := r.Header.Get("x-oas-request-id")
 	if err = checkResponse(r, http.StatusNoContent); err != nil {
 		return "", err
